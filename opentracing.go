@@ -19,14 +19,20 @@ type otWrapper struct {
 
 // StartSpan returns a new span with the given operation name and options.
 func StartSpan(tracer opentracing.Tracer, name string, opts ...opentracing.StartSpanOption) (context.Context, opentracing.Span, error) {
+	ctx := context.Background()
+	md, ok := metadata.FromContext(ctx)
+	if !ok {
+		md = make(map[string]string)
+	}
+
 	sp := tracer.StartSpan(name, opts...)
 
-	if err := sp.Tracer().Inject(sp.Context(), opentracing.TextMap, make(map[string]string)); err != nil {
+	if err := sp.Tracer().Inject(sp.Context(), opentracing.TextMap, opentracing.TextMapCarrier(md)); err != nil {
 		return nil, nil, err
 	}
 
-	ctx := opentracing.ContextWithSpan(context.Background(), sp)
-	ctx = metadata.NewContext(ctx, metadata.Metadata{})
+	ctx = opentracing.ContextWithSpan(ctx, sp)
+	ctx = metadata.NewContext(ctx, md)
 	return ctx, sp, nil
 }
 
