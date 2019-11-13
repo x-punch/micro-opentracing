@@ -5,16 +5,16 @@ import (
 	"testing"
 
 	"github.com/micro/go-micro/client"
+	"github.com/micro/go-micro/client/selector"
 	microerr "github.com/micro/go-micro/errors"
 	"github.com/micro/go-micro/registry/memory"
-	"github.com/micro/go-micro/selector"
 	"github.com/micro/go-micro/server"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/mocktracer"
 	"github.com/stretchr/testify/assert"
 
-	cli "github.com/micro/go-micro/client/grpc"
-	srv "github.com/micro/go-micro/server/grpc"
+	cli "github.com/micro/go-micro/client"
+	srv "github.com/micro/go-micro/server"
 )
 
 type Test interface {
@@ -64,7 +64,6 @@ func TestClient(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			tracer := mocktracer.New()
-			opentracing.SetGlobalTracer(tracer)
 
 			registry := memory.NewRegistry()
 			sel := selector.NewSelector(selector.Registry(registry))
@@ -75,7 +74,7 @@ func TestClient(t *testing.T) {
 
 			c := cli.NewClient(
 				client.Selector(sel),
-				client.WrapCall(NewCallWrapper()),
+				client.WrapCall(NewCallWrapper(tracer)),
 			)
 
 			s := srv.NewServer(
@@ -83,8 +82,8 @@ func TestClient(t *testing.T) {
 				server.Version(serverVersion),
 				server.Id(serverID),
 				server.Registry(registry),
-				server.WrapSubscriber(NewSubscriberWrapper()),
-				server.WrapHandler(NewHandlerWrapper()),
+				server.WrapSubscriber(NewSubscriberWrapper(tracer)),
+				server.WrapHandler(NewHandlerWrapper(tracer)),
 			)
 			defer s.Stop()
 
@@ -98,7 +97,7 @@ func TestClient(t *testing.T) {
 				t.Fatalf("Unexpected error starting server: %v", err)
 			}
 
-			ctx, span, err := StartSpanFromContext(context.Background(), "root")
+			ctx, span, err := StartSpanFromContext(context.Background(), tracer, "root")
 			assert.NoError(err)
 
 			req := c.NewRequest(serverName, "Test.Method", &TestRequest{IsError: tt.isError}, client.WithContentType("application/json"))
