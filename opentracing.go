@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/micro/go-micro/client"
-	"github.com/micro/go-micro/metadata"
-	"github.com/micro/go-micro/registry"
-	"github.com/micro/go-micro/server"
+	"github.com/micro/go-micro/v2/client"
+	"github.com/micro/go-micro/v2/metadata"
+	"github.com/micro/go-micro/v2/registry"
+	"github.com/micro/go-micro/v2/server"
 	opentracing "github.com/opentracing/opentracing-go"
 )
 
@@ -22,7 +22,7 @@ func StartSpan(tracer opentracing.Tracer, name string, opts ...opentracing.Start
 	ctx := context.Background()
 	md, ok := metadata.FromContext(ctx)
 	if !ok {
-		md = make(map[string]string)
+		md = make(metadata.Metadata)
 	}
 
 	sp := tracer.StartSpan(name, opts...)
@@ -41,11 +41,8 @@ func StartSpan(tracer opentracing.Tracer, name string, opts ...opentracing.Start
 func StartSpanFromContext(ctx context.Context, tracer opentracing.Tracer, name string, opts ...opentracing.StartSpanOption) (context.Context, opentracing.Span, error) {
 	md, ok := metadata.FromContext(ctx)
 	if !ok {
-		md = make(map[string]string)
+		md = make(metadata.Metadata)
 	}
-
-	// copy the metadata to prevent race
-	md = metadata.Copy(md)
 
 	// Find parent span.
 	// First try to get span within current service boundary.
