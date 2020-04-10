@@ -59,6 +59,15 @@ func StartSpanFromContext(ctx context.Context, tracer opentracing.Tracer, name s
 		return nil, nil, err
 	}
 
+	// fixing trace id incorrect issue
+	// jaeger trace context key is uber-trace-id, which will be transformed into Uber-Trace-Id by metadata.FromContext
+	// after sp.Tracer().Inject, there will be two jaeger trace context header: uber-trace-id and Uber-Trace-Id
+	// Uber-Trace-Id store parent trace id from ctx, uber-trace-id is current trace id injected by tracer
+	// they will conflict on metadata.NewContext(ctx, md), which will lower header key, and loop in disordered map
+	// so delete Uber-Trace-Id can fix this issue, but the main problem is metadata changed the header key during transport
+	// TODO: delete this when metadata issue fixed
+	delete(md, "Uber-Trace-Id")
+
 	ctx = opentracing.ContextWithSpan(ctx, sp)
 	ctx = metadata.NewContext(ctx, md)
 	return ctx, sp, nil
