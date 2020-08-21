@@ -17,6 +17,11 @@ type otWrapper struct {
 	client.Client
 }
 
+type publishWrapper struct {
+	ot opentracing.Tracer
+	client.Client
+}
+
 // StartSpan returns a new span with the given operation name and options.
 func StartSpan(tracer opentracing.Tracer, name string, opts ...opentracing.StartSpanOption) (context.Context, opentracing.Span, error) {
 	ctx := context.Background()
@@ -164,5 +169,25 @@ func NewSubscriberWrapper(ot opentracing.Tracer) server.SubscriberWrapper {
 			defer span.Finish()
 			return next(ctx, msg)
 		}
+	}
+}
+
+func (o *publishWrapper) Publish(ctx context.Context, p client.Message, opts ...client.PublishOption) error {
+	name := fmt.Sprintf("Pub to %s", p.Topic())
+	ctx, span, err := StartSpanFromContext(ctx, o.ot, name)
+	if err != nil {
+		return err
+	}
+	defer span.Finish()
+	return o.Client.Publish(ctx, p, opts...)
+}
+
+// NewPublishWrapper accepts an open tracing Trace and returns a Client Wrapper
+func NewPublishWrapper(ot opentracing.Tracer) client.Wrapper {
+	return func(c client.Client) client.Client {
+		if ot == nil {
+			ot = opentracing.GlobalTracer()
+		}
+		return &publishWrapper{ot, c}
 	}
 }
